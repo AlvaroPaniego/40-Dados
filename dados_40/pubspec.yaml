@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_spinbox: ^0.13.1
+  sensors_plus: ^4.0.2
 
 dev_dependencies:
   flutter_test:
@@ -17,4 +18,11 @@ dev_dependencies:
   flutter_lints: ^2.0.0
 
 flutter:
+  assets:
+    - img/1.png
+    - img/2.png
+    - img/3.png
+    - img/4.png
+    - img/5.png
+    - img/6.png
   uses-material-design: true

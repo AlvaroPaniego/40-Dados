@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:dados_40/gestor_tiradas.dart';
+import 'package:dados_40/leyenda.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_spinbox/flutter_spinbox.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 
 List<String> damageList = ["1", "2", "3", "d6", "d3"];
 
@@ -12,21 +16,84 @@ class Principal extends StatefulWidget {
 }
 
 class _PrincipalState extends State<Principal> {
+  UserAccelerometerEvent? _userAccelerometerEvent;
+  static const Duration _ignoreDuration = Duration(milliseconds: 20);
+  DateTime? _userAccelerometerUpdateTime;
+  int? _userAccelerometerLastInterval;
+  Duration sensorInterval = SensorInterval.normalInterval;
+  final _streamSubscriptions = <StreamSubscription<dynamic>>[];
   String selectedItem = damageList.first;
   String result = "", damage = damageList.first;
-  int bs = 2, attacks = 1, strength = 1, toughness = 1, save = 2, ap = 0, invul = 0;
+  int bs = 2,
+      attacks = 1,
+      strength = 1,
+      toughness = 1,
+      save = 2,
+      ap = 0,
+      invul = 0;
   GestorTiradas gt = GestorTiradas();
+
+  @override
+  void initState() {
+    super.initState();
+    accelerometerEventStream().listen((event) {
+      if (event.x >= 10.0 || event.z >= 10.0 || event.y >= 19.8) {
+        updateResult(bs, attacks, strength, toughness, save, invul, ap, damage);
+      }
+    });
+
+    // _streamSubscriptions.add(
+    //   userAccelerometerEventStream(samplingPeriod: sensorInterval).listen(
+    //         (UserAccelerometerEvent event) {
+    //       final now = DateTime.now();
+    //       setState(() {
+    //         _userAccelerometerEvent = event;
+    //         if (_userAccelerometerUpdateTime != null) {
+    //           final interval = now.difference(_userAccelerometerUpdateTime!);
+    //           if (interval > _ignoreDuration) {
+    //             _userAccelerometerLastInterval = interval.inMilliseconds;
+    //           }
+    //         }
+    //       });
+    //       _userAccelerometerUpdateTime = now;
+    //     },
+    //     onError: (e) {
+    //       showDialog(
+    //           context: context,
+    //           builder: (context) {
+    //             return const AlertDialog(
+    //               title: Text("Sensor Not Found"),
+    //               content: Text(
+    //                   "It seems that your device doesn't support User Accelerometer Sensor"),
+    //             );
+    //           });
+    //     },
+    //     cancelOnError: true,
+    //   ),
+    // );
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    for (final subscription in _streamSubscriptions) {
+      subscription.cancel();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color.fromRGBO(96, 110, 140, 1.0),
       appBar: AppBar(
         actions: [
-          IconButton(onPressed: () {
-
-          }, icon: const Icon(Icons.question_mark_sharp)),
+          IconButton(
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const PaginaLeyenda()));
+              },
+              icon: const Icon(Icons.question_mark_sharp)),
           SizedBox(
-            width: MediaQuery.of(context).size.width*0.15,
+            width: MediaQuery.of(context).size.width * 0.15,
           )
         ],
         title: const Text("40 Dados"),
@@ -57,7 +124,8 @@ class _PrincipalState extends State<Principal> {
           TextButton(
             onPressed: () {
               setState(() {
-                result = updateResult(bs, attacks, strength, toughness, save, invul, ap, damage);
+                result = updateResult(
+                    bs, attacks, strength, toughness, save, invul, ap, damage);
               });
             },
             child: Container(
@@ -76,8 +144,7 @@ class _PrincipalState extends State<Principal> {
                   color: Colors.blueGrey),
               padding: const EdgeInsets.all(15.0),
               margin: const EdgeInsets.all(8.0),
-              child: Text(result)
-          )
+              child: Text(result))
         ],
       ),
     );
@@ -102,7 +169,7 @@ class _PrincipalState extends State<Principal> {
             keyboardType: TextInputType.none,
             onChanged: (value) {
               setState(() {
-                switch(text){
+                switch (text) {
                   case "BS":
                     bs = value.toInt();
                     break;
@@ -119,7 +186,6 @@ class _PrincipalState extends State<Principal> {
                     toughness = value.toInt();
                     break;
                   case "Salvación":
-
                     save = value.toInt();
                     break;
                   case "Salvación invulnerable":
@@ -134,7 +200,8 @@ class _PrincipalState extends State<Principal> {
     );
   }
 
-  String updateResult(int bs, int attacks, int strength, int toughness, int save, int invul, int ap, String damage){
+  String updateResult(int bs, int attacks, int strength, int toughness,
+      int save, int invul, int ap, String damage) {
     int hits = gt.calculateHits(bs, attacks);
     int wounds = gt.calculateWounds(hits, strength, toughness);
     int totalDamage = gt.calculateDamage(damage, wounds, ap, invul, save);
