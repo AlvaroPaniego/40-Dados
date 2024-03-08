@@ -19,7 +19,16 @@ class _PrincipalState extends State<Principal> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color.fromRGBO(96, 110, 140, 1.0),
       appBar: AppBar(
+        actions: [
+          IconButton(onPressed: () {
+
+          }, icon: const Icon(Icons.question_mark_sharp)),
+          SizedBox(
+            width: MediaQuery.of(context).size.width*0.15,
+          )
+        ],
         title: const Text("40 Dados"),
       ),
       body: Column(
