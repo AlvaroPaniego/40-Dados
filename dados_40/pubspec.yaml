@@ -9,7 +9,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_sound: ^9.2.13
   flutter_spinbox: ^0.13.1
+  http: ^1.1.0
   sensors_plus: ^4.0.2
 
 dev_dependencies:

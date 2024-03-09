@@ -42,11 +42,12 @@ class GestorTiradas{
     return wounds;
   }
 
-  int calculateDamage(String damage, int wounds, int ap, int invul, int save){
+  List<int> calculateDamage(String damage, int wounds, int ap, int invul, int save){
     int totalDamage = 0;
     int dice;
     int actuallyWounds = 0;
     int finalSave = save + ap;
+
     for(int i = 0; i < wounds; i++){
       dice = random.nextInt(6)+1;
       if(dice <= finalSave){
@@ -63,7 +64,8 @@ class GestorTiradas{
         }
       }
     }
-    return totalDamage;
+
+    return [actuallyWounds, totalDamage];
   }
 
   int applyDamage(String damage, int totalDamage){

@@ -1,12 +1,17 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dados_40/gestor_tiradas.dart';
 import 'package:dados_40/leyenda.dart';
+import 'package:dados_40/sound.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_sound/flutter_sound.dart';
 import 'package:flutter_spinbox/flutter_spinbox.dart';
 import 'package:sensors_plus/sensors_plus.dart';
+import 'package:http/http.dart' as http;
 
 List<String> damageList = ["1", "2", "3", "d6", "d3"];
+const KEY = "HUSHYGjaSaAsvp1noG7rTMOT7t1aPthbhvP5j4h1";
 
 class Principal extends StatefulWidget {
   const Principal({super.key});
@@ -16,12 +21,27 @@ class Principal extends StatefulWidget {
 }
 
 class _PrincipalState extends State<Principal> {
-  UserAccelerometerEvent? _userAccelerometerEvent;
-  static const Duration _ignoreDuration = Duration(milliseconds: 20);
-  DateTime? _userAccelerometerUpdateTime;
-  int? _userAccelerometerLastInterval;
+  late Future<Sound> futureSound;
+  FlutterSoundPlayer myPlayer = FlutterSoundPlayer();
+  Future<Sound> _getSound() async{
+    String url = "";
+    final response = await http.get(Uri(
+        queryParameters: {"token" : KEY},
+        scheme: "https",
+        path: "/apiv2/sounds/450768/",
+        host: "freesound.org"),
+
+    );
+    if (response.statusCode == 200){
+      String data = utf8.decode(response.bodyBytes);
+      final jsonData = jsonDecode(data);
+      url = jsonData["previews"]["preview-hq-mp3"];
+    }else{
+      throw Exception("Fallo la conexion");
+    }
+    return Sound(url);
+  }
   Duration sensorInterval = SensorInterval.normalInterval;
-  final _streamSubscriptions = <StreamSubscription<dynamic>>[];
   String selectedItem = damageList.first;
   String result = "", damage = damageList.first;
   int bs = 2,
@@ -36,50 +56,16 @@ class _PrincipalState extends State<Principal> {
   @override
   void initState() {
     super.initState();
-    accelerometerEventStream().listen((event) {
-      if (event.x >= 10.0 || event.z >= 10.0 || event.y >= 19.8) {
-        updateResult(bs, attacks, strength, toughness, save, invul, ap, damage);
-      }
-    });
-
-    // _streamSubscriptions.add(
-    //   userAccelerometerEventStream(samplingPeriod: sensorInterval).listen(
-    //         (UserAccelerometerEvent event) {
-    //       final now = DateTime.now();
-    //       setState(() {
-    //         _userAccelerometerEvent = event;
-    //         if (_userAccelerometerUpdateTime != null) {
-    //           final interval = now.difference(_userAccelerometerUpdateTime!);
-    //           if (interval > _ignoreDuration) {
-    //             _userAccelerometerLastInterval = interval.inMilliseconds;
-    //           }
-    //         }
-    //       });
-    //       _userAccelerometerUpdateTime = now;
-    //     },
-    //     onError: (e) {
-    //       showDialog(
-    //           context: context,
-    //           builder: (context) {
-    //             return const AlertDialog(
-    //               title: Text("Sensor Not Found"),
-    //               content: Text(
-    //                   "It seems that your device doesn't support User Accelerometer Sensor"),
-    //             );
-    //           });
-    //     },
-    //     cancelOnError: true,
-    //   ),
-    // );
+    myPlayer.openPlayer();
+    futureSound = _getSound();
   }
-
-  @override
-  void dispose() {
-    super.dispose();
-    for (final subscription in _streamSubscriptions) {
-      subscription.cancel();
+    @override
+    void dispose() {
+      // Be careful : you must `close` the audio session when you have finished with it.
+      myPlayer.closePlayer();
+      super.dispose();
     }
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -121,23 +107,16 @@ class _PrincipalState extends State<Principal> {
               ]),
             ],
           ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                result = updateResult(
-                    bs, attacks, strength, toughness, save, invul, ap, damage);
-              });
-            },
-            child: Container(
-                decoration: const BoxDecoration(
-                    borderRadius: BorderRadius.all(Radius.circular(15.0)),
-                    color: Colors.grey),
-                padding: const EdgeInsets.all(15.0),
-                child: const Text(
-                  "¡Tirar dados!",
-                  style: TextStyle(color: Colors.black),
-                )),
-          ),
+          
+          FutureBuilder(future: futureSound, builder: (context, snapshot) {
+            if(snapshot.hasData){
+              return throwDiceButton(snapshot);
+            }else if(snapshot.hasError){
+              return const Text("Algo salió mal :(");
+            }else{
+              return throwDiceButtonNoFunctionality();
+            }
+          },),
           Container(
               decoration: const BoxDecoration(
                   borderRadius: BorderRadius.all(Radius.circular(15.0)),
@@ -147,6 +126,48 @@ class _PrincipalState extends State<Principal> {
               child: Text(result))
         ],
       ),
+    );
+  }
+
+  TextButton throwDiceButton(snapshot) {
+    Sound sound = snapshot.data;
+    return TextButton(
+          onPressed: () {
+            setState(() {
+              result = updateResult(
+                  bs, attacks, strength, toughness, save, invul, ap, damage);
+              myPlayer.startPlayer(fromURI: sound.url);
+            });
+          },
+          child: Container(
+              decoration: const BoxDecoration(
+                  borderRadius: BorderRadius.all(Radius.circular(15.0)),
+                  color: Colors.grey),
+              padding: const EdgeInsets.all(15.0),
+              child: const Text(
+                "¡Tirar dados!",
+                style: TextStyle(color: Colors.black),
+              )),
+        );
+  }
+
+  TextButton throwDiceButtonNoFunctionality() {
+    return TextButton(
+      onPressed: () {
+        setState(() {
+          result = updateResult(
+              bs, attacks, strength, toughness, save, invul, ap, damage);
+        });
+      },
+      child: Container(
+          decoration: const BoxDecoration(
+              borderRadius: BorderRadius.all(Radius.circular(15.0)),
+              color: Colors.grey),
+          padding: const EdgeInsets.all(15.0),
+          child: const Text(
+            "¡Tirar dados!",
+            style: TextStyle(color: Colors.black),
+          )),
     );
   }
 
@@ -204,8 +225,8 @@ class _PrincipalState extends State<Principal> {
       int save, int invul, int ap, String damage) {
     int hits = gt.calculateHits(bs, attacks);
     int wounds = gt.calculateWounds(hits, strength, toughness);
-    int totalDamage = gt.calculateDamage(damage, wounds, ap, invul, save);
-    return "Han impactado $hits\nHan herido $wounds\nLa unidad enemiga sufre $wounds heridas de $damage de daño\n($totalDamage)";
+    List<int> totalDamage = gt.calculateDamage(damage, wounds, ap, invul, save);
+    return "Han impactado $hits\nHan herido $wounds\nEl enemiga a salvado ${wounds-totalDamage[0]}\nLa unidad enemiga sufre ${totalDamage[0]} heridas de $damage de daño (${totalDamage[1]})";
   }
 
   dataInputDamage(text) {
